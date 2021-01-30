@@ -80,6 +80,12 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		// Logging setup
 		logger := s.logger(r, "Auth", rule, "Authenticating request")
 
+		// Throw Unauthorized error if login path is set 
+		// and it does not match the request url path
+		if config.LoginPath != "" && r.URL.Path != config.LoginPath {
+			http.Error(w, "Not authorized", 401)
+		}
+
 		// Get auth cookie
 		c, err := r.Cookie(config.CookieName)
 		if err != nil {
