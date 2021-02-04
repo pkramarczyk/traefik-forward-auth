@@ -1,6 +1,7 @@
 package tfa
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -80,14 +81,15 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		// Logging setup
 		logger := s.logger(r, "Auth", rule, "Authenticating request")
 
-		// Throw Unauthorized error if login path is set 
+		// Throw Unauthorized error if login path is set
 		// and it does not match the request url path
-		if config.LoginPath != "" && r.URL.Path != config.LoginPath {
-			http.Error(w, "Not authorized", 401)
-		}
-
 		// Get auth cookie
 		c, err := r.Cookie(config.CookieName)
+		if err != nil && config.LoginPath != "" && r.URL.Path != config.LoginPath {
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+
 		if err != nil {
 			s.authRedirect(logger, w, r, p)
 			return
@@ -175,7 +177,8 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		token, err := p.ExchangeCode(redirectUri(r), r.URL.Query().Get("code"))
 		if err != nil {
 			logger.WithField("error", err).Error("Code exchange failed with provider")
-			http.Error(w, "Service unavailable", 503)
+			redirectURL := fmt.Sprintf("%s%s", redirectBase(r), "/unauthorized")
+			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 			return
 		}
 
